@@ -1,143 +1,88 @@
-(function() {
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js';
-  script.onload = () => {
-    const {
-      Engine, Render, Runner, World, Bodies, Body, Constraint,
-      Mouse, MouseConstraint, Events
-    } = Matter;
+// Create the canvas element where the character will appear
+const canvas = document.createElement('canvas');
+canvas.id = 'characterCanvas';  // Add the ID so we can control the canvas with CSS
+document.body.appendChild(canvas);
 
-    const engine = Engine.create();
-    const world = engine.world;
+// Set up the Matter.js engine and world
+const engine = Matter.Engine.create();
+const world = engine.world;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+// Create a render object
+const render = Matter.Render.create({
+  element: canvas,
+  engine: engine,
+  options: {
+    width: window.innerWidth,
+    height: window.innerHeight,
+    wireframes: false,  // No wireframes for a smoother look
+  }
+});
 
-    const render = Render.create({
-      element: document.body,
-      engine: engine,
-      options: {
-        width,
-        height,
-        background: 'transparent',
-        wireframes: false
-      }
-    });
+// Character body (circle for the head and body, legs, arms, etc.)
+const body = Matter.Bodies.circle(200, 200, 30, { 
+  render: {
+    fillStyle: 'white'
+  }
+});
 
-    Render.run(render);
-    Runner.run(Runner.create(), engine);
+// Joints (add the limbs here using similar code for the arms, legs, etc.)
+const armLeft = Matter.Bodies.rectangle(160, 190, 40, 10, { 
+  render: { fillStyle: 'white' } 
+});
+const armRight = Matter.Bodies.rectangle(240, 190, 40, 10, { 
+  render: { fillStyle: 'white' } 
+});
+const legLeft = Matter.Bodies.rectangle(170, 240, 40, 10, { 
+  render: { fillStyle: 'white' } 
+});
+const legRight = Matter.Bodies.rectangle(230, 240, 40, 10, { 
+  render: { fillStyle: 'white' } 
+});
 
-    // Create invisible walls at page edges
-    const wallThickness = 40;
-    const walls = [
-      Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, { isStatic: true, render: { visible: false } }),
-      Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, { isStatic: true, render: { visible: false } }),
-      Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, { isStatic: true, render: { visible: false } }),
-      Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, { isStatic: true, render: { visible: false } }),
-    ];
-    World.add(world, walls);
+// Create the joints for the limbs
+const jointOptions = {
+  stiffness: 0.9,
+  length: 30,
+  render: { type: 'line' }
+};
+const armJointLeft = Matter.Constraint.create({ bodyA: body, bodyB: armLeft, pointA: { x: -30, y: -10 }, pointB: { x: 0, y: 0 }, ...jointOptions });
+const armJointRight = Matter.Constraint.create({ bodyA: body, bodyB: armRight, pointA: { x: 30, y: -10 }, pointB: { x: 0, y: 0 }, ...jointOptions });
+const legJointLeft = Matter.Constraint.create({ bodyA: body, bodyB: legLeft, pointA: { x: -15, y: 20 }, pointB: { x: 0, y: 0 }, ...jointOptions });
+const legJointRight = Matter.Constraint.create({ bodyA: body, bodyB: legRight, pointA: { x: 15, y: 20 }, pointB: { x: 0, y: 0 }, ...jointOptions });
 
-    // Cute tiny character
-    const offsetX = 80;
-    const offsetY = height - 80;
+// Add all the bodies and constraints to the world
+Matter.World.add(world, [body, armLeft, armRight, legLeft, legRight, armJointLeft, armJointRight, legJointLeft, legJointRight]);
 
-    const head = Bodies.circle(offsetX, offsetY, 10, {
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
+// Update the engine continuously
+Matter.Engine.run(engine);
+Matter.Render.run(render);
 
-    const torso = Bodies.rectangle(offsetX, offsetY + 15, 20, 30, {
-      chamfer: { radius: 6 },
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
+// Make the character freeze until touched
+let isFrozen = true;
 
-    const leftArm = Bodies.rectangle(offsetX - 15, offsetY + 10, 10, 20, {
-      chamfer: { radius: 5 },
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
+canvas.addEventListener('mousedown', () => {
+  if (isFrozen) {
+    // Ragdoll for a tiny moment before freezing
+    Matter.Body.setVelocity(body, { x: 0, y: 0 });
+    Matter.Body.setAngularVelocity(body, 0);
+    Matter.Body.setPosition(body, { x: 200, y: 200 });
+    isFrozen = false;
+  }
+});
 
-    const rightArm = Bodies.rectangle(offsetX + 15, offsetY + 10, 10, 20, {
-      chamfer: { radius: 5 },
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
-
-    const leftLeg = Bodies.rectangle(offsetX - 6, offsetY + 35, 6, 15, {
-      chamfer: { radius: 3 },
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
-
-    const rightLeg = Bodies.rectangle(offsetX + 6, offsetY + 35, 6, 15, {
-      chamfer: { radius: 3 },
-      render: { fillStyle: 'white', strokeStyle: 'black', lineWidth: 2 },
-      isStatic: true
-    });
-
-    const parts = [head, torso, leftArm, rightArm, leftLeg, rightLeg];
-
-    const constraints = [
-      Constraint.create({ bodyA: head, bodyB: torso, pointA: { x: 0, y: 10 }, pointB: { x: 0, y: -15 }, stiffness: 0.8, render: { visible: false } }),
-      Constraint.create({ bodyA: torso, bodyB: leftArm, pointA: { x: -10, y: -5 }, pointB: { x: 0, y: -10 }, stiffness: 0.8, render: { visible: false } }),
-      Constraint.create({ bodyA: torso, bodyB: rightArm, pointA: { x: 10, y: -5 }, pointB: { x: 0, y: -10 }, stiffness: 0.8, render: { visible: false } }),
-      Constraint.create({ bodyA: torso, bodyB: leftLeg, pointA: { x: -5, y: 15 }, pointB: { x: 0, y: -10 }, stiffness: 0.8, render: { visible: false } }),
-      Constraint.create({ bodyA: torso, bodyB: rightLeg, pointA: { x: 5, y: 15 }, pointB: { x: 0, y: -10 }, stiffness: 0.8, render: { visible: false } }),
-    ];
-
-    World.add(world, [...parts, ...constraints]);
-
-    // Ragdoll for 0.1 sec on load
-    function ragdollThenFreeze() {
-      parts.forEach(p => Body.setStatic(p, false));
-      setTimeout(() => {
-        parts.forEach(p => Body.setStatic(p, true));
-      }, 100);
-    }
-
-    ragdollThenFreeze();
-
-    // Explode if thrown hard and not held
-    function checkVelocity() {
-      const threshold = 200;
-      if (!mouseConstraint.body) {
-        parts.forEach(p => {
-          const speed = Math.hypot(p.velocity.x, p.velocity.y);
-          if (speed > threshold) {
-            constraints.forEach(c => World.remove(world, c));
-            parts.forEach(p => Body.setStatic(p, false));
-          }
-        });
+// Add physics interactions with the screen edges (bouncing off walls)
+Matter.Events.on(engine, 'collisionStart', (event) => {
+  const pairs = event.pairs;
+  pairs.forEach(pair => {
+    if (pair.bodyA === body || pair.bodyB === body) {
+      if (!isFrozen) {
+        // Trigger explosion if velocity is high
+        const velocity = Matter.Vector.magnitude(body.velocity);
+        if (velocity > 10) {
+          // Explosion effect (delete joints and body parts)
+          Matter.World.remove(world, [armLeft, armRight, legLeft, legRight, armJointLeft, armJointRight, legJointLeft, legJointRight]);
+        }
       }
     }
-
-    Events.on(engine, 'afterUpdate', checkVelocity);
-
-    // Prevent from leaving the screen
-    Events.on(engine, 'beforeUpdate', () => {
-      parts.forEach(p => {
-        const clampedX = Math.min(Math.max(p.position.x, 0), width);
-        const clampedY = Math.min(Math.max(p.position.y, 0), height);
-        Body.setPosition(p, { x: clampedX, y: clampedY });
-      });
-    });
-
-    // Mouse controls
-    const mouse = Mouse.create(render.canvas);
-    const mouseConstraint = MouseConstraint.create(engine, {
-      mouse,
-      constraint: { stiffness: 0.2, render: { visible: false } }
-    });
-
-    World.add(world, mouseConstraint);
-    render.mouse = mouse;
-
-    // Make parts dynamic when dragged
-    Events.on(mouseConstraint, 'startdrag', () => {
-      parts.forEach(p => Body.setStatic(p, false));
-    });
-
-  };
-  document.head.appendChild(script);
-})();
+  });
+});
