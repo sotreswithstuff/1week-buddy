@@ -1,7 +1,1 @@
-/* Ensure the character stays in the bottom-right corner and always stays on top */
-#characterCanvas {
-  position: fixed !important; /* Fix it to the page */
-  bottom: 20px !important;     /* 20px from the bottom */
-  right: 20px !important;      /* 20px from the right */
-  z-index: 99999 !important;   /* Ensure it's on top of all other content */
-}
+
