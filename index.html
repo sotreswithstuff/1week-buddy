@@ -1,443 +1,336 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MessageGoo Chat</title>
-    <!-- Use the Inter font from Google Fonts for a polished feel -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
-            color: #1a1a1a;
-        }
-
-        /* Custom scrollbar to be less obtrusive */
-        .message-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        .message-container::-webkit-scrollbar-track {
-            background: #e5e7eb;
-        }
-        .message-container::-webkit-scrollbar-thumb {
-            background-color: #d1d5db;
-            border-radius: 4px;
-        }
-        .message-container::-webkit-scrollbar-thumb:hover {
-            background-color: #9ca3af;
-        }
-
-        /* iOS-style blur effect for the input area */
-        .ios-blur {
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            background-color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* Styles for sent and received message bubbles */
-        .sent-bubble {
-            border-bottom-right-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .received-bubble {
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Fade-in animation for messages */
-        .message-animation {
-            animation: fadeInScale 0.3s ease-out forwards;
-        }
-
-        /* Keyframes for the message fade-in and scale animation */
-        @keyframes fadeInScale {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-    </style>
-    <!-- Tailwind CSS for utility-first styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MessageGoo Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f0f2f5;
+      color: #1a1a1a;
+    }
+    .message-container::-webkit-scrollbar { width: 8px; }
+    .message-container::-webkit-scrollbar-track { background: #e5e7eb; }
+    .message-container::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 4px; }
+    .message-container::-webkit-scrollbar-thumb:hover { background-color: #9ca3af; }
+    .ios-blur {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+    .sent-bubble { border-bottom-right-radius: 4px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+    .received-bubble { border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+    .message-animation { animation: fadeInScale 0.3s ease-out forwards; }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="flex items-center justify-center min-h-screen p-8 bg-gray-100 text-gray-800">
-    <!-- Firebase SDK Imports -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These variables are provided by the hosting environment.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // Global variables for Firebase services
-        window.app = initializeApp(firebaseConfig);
-        window.auth = getAuth(window.app);
-        window.db = getFirestore(window.app);
-        
-        // Asynchronously sign in the user
-        async function signIn() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(window.auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(window.auth);
-                }
-                console.log("Firebase signed in successfully.");
-            } catch (error) {
-                console.error("Firebase sign-in failed:", error);
-            }
-        }
-        
-        window.onload = signIn;
-    </script>
-
-    <!-- Login Screen -->
-    <div id="login-screen" class="absolute inset-0 flex items-center justify-center bg-gray-100 z-50 transition-opacity duration-500">
-        <div class="bg-white p-8 rounded-2xl shadow-xl text-center">
-            <h2 class="text-3xl font-bold mb-4">Enter Your Name</h2>
-            <form id="login-form" class="flex flex-col space-y-4">
-                <input type="text" id="username-input" placeholder="Your Name" class="w-full px-4 py-2 text-gray-800 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <button type="submit" class="w-full bg-blue-500 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
-                    Join Chat
-                </button>
-            </form>
-        </div>
+  <!-- Login Screen -->
+  <div id="login-screen" class="absolute inset-0 flex items-center justify-center bg-gray-100 z-50 transition-opacity duration-500">
+    <div class="bg-white p-8 rounded-2xl shadow-xl text-center">
+      <h2 class="text-3xl font-bold mb-4">Enter Your Name</h2>
+      <form id="login-form" class="flex flex-col space-y-4">
+        <input type="text" id="username-input" placeholder="Your Name"
+               class="w-full px-4 py-2 text-gray-800 border-2 border-gray-300 rounded-lg
+                      focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <button type="submit"
+                class="w-full bg-blue-500 text-white font-semibold py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200">
+          Join Chat
+        </button>
+      </form>
     </div>
+  </div>
 
-    <!-- Main chat container for desktop (initially hidden) -->
-    <div id="chat-container" class="flex flex-col w-full max-w-2xl h-[calc(100vh-4rem)] bg-white rounded-3xl shadow-2xl overflow-hidden hidden">
-        
-        <!-- Header -->
-        <header class="bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-center">
-            <h1 class="text-2xl font-bold text-gray-800">MessageGoo</h1>
-        </header>
+  <!-- Chat Container -->
+  <div id="chat-container"
+       class="flex flex-col w-full max-w-2xl h-[calc(100vh-4rem)] bg-white rounded-3xl shadow-2xl overflow-hidden hidden">
+    
+    <header class="bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-center">
+      <h1 class="text-2xl font-bold text-gray-800">MessageGoo</h1>
+    </header>
 
-        <!-- User ID display (IMPORTANT FOR MULTI-USER APPS) -->
-        <div class="p-2 text-center text-xs text-gray-500 bg-gray-100 border-b border-gray-200">
-            Your User ID: <span id="user-id"></span>
-        </div>
-        
-        <!-- Messages display area -->
-        <div id="messages" class="message-container flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            <!-- Messages will be injected here by JavaScript -->
-        </div>
-
-        <!-- Right-click context menu for reactions and reply -->
-        <div id="reaction-menu" class="hidden absolute z-50 bg-white rounded-xl shadow-lg p-2 space-x-1 border border-gray-200">
-            <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100 transition-colors duration-150 transform hover:scale-125" data-reaction="👍">👍</button>
-            <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100 transition-colors duration-150 transform hover:scale-125" data-reaction="❤️">❤️</button>
-            <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100 transition-colors duration-150 transform hover:scale-125" data-reaction="😂">😂</button>
-            <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100 transition-colors duration-150 transform hover:scale-125" data-reaction="😮">😮</button>
-            <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100 transition-colors duration-150 transform hover:scale-125" data-reaction="🙏">🙏</button>
-            <button id="reply-btn" class="text-xs font-semibold px-2 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors duration-150">Reply</button>
-        </div>
-        
-        <!-- Hidden file input for photo upload -->
-        <input type="file" id="photo-upload" accept="image/*" class="hidden">
-
-        <!-- Message input area -->
-        <div class="ios-blur p-4 border-t border-gray-200">
-            <div id="reply-quote-container" class="hidden p-2 mb-2 bg-gray-100 rounded-lg border-l-4 border-blue-500 relative">
-                <span id="reply-quote-text" class="text-sm font-medium text-gray-600"></span>
-                <button id="cancel-reply" class="absolute top-1 right-1 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times-circle"></i>
-                </button>
-            </div>
-            <form id="chat-form" class="flex items-end space-x-3">
-                <!-- Attachment/plus button for photo upload -->
-                <button type="button" id="upload-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-lg transform transition-transform duration-200 active:scale-95">
-                    <i class="fas fa-plus"></i>
-                </button>
-                
-                <!-- Text input field -->
-                <textarea id="message-input" placeholder="MessageGoo" rows="1" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-2xl resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 placeholder-gray-500"></textarea>
-                
-                <!-- Send button -->
-                <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-lg transform transition-transform duration-200 active:scale-95">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </form>
-        </div>
+    <div class="p-2 text-center text-xs text-gray-500 bg-gray-100 border-b border-gray-200">
+      Your User ID: <span id="user-id"></span>
     </div>
+    
+    <div id="messages" class="message-container flex-1 overflow-y-auto px-6 py-4 space-y-4"></div>
 
-    <script type="module">
-        import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div id="reaction-menu"
+         class="hidden absolute z-50 bg-white rounded-xl shadow-lg p-2 space-x-1 border border-gray-200">
+      <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100" data-reaction="👍">👍</button>
+      <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100" data-reaction="❤️">❤️</button>
+      <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100" data-reaction="😂">😂</button>
+      <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100" data-reaction="😮">😮</button>
+      <button class="reaction-btn text-3xl p-1 rounded-full hover:bg-gray-100" data-reaction="🙏">🙏</button>
+      <button id="reply-btn"
+              class="text-xs font-semibold px-2 py-1 bg-gray-100 rounded-full hover:bg-gray-200">Reply</button>
+    </div>
+    
+    <input type="file" id="photo-upload" accept="image/*" class="hidden">
 
-        // Get references to DOM elements
-        const loginScreen = document.getElementById('login-screen');
-        const loginForm = document.getElementById('login-form');
-        const usernameInput = document.getElementById('username-input');
-        const chatContainer = document.getElementById('chat-container');
-        const chatForm = document.getElementById('chat-form');
-        const messageInput = document.getElementById('message-input');
-        const messagesContainer = document.getElementById('messages');
-        const reactionMenu = document.getElementById('reaction-menu');
-        const replyBtn = document.getElementById('reply-btn');
-        const replyQuoteContainer = document.getElementById('reply-quote-container');
-        const replyQuoteText = document.getElementById('reply-quote-text');
-        const cancelReplyBtn = document.getElementById('cancel-reply');
-        const uploadBtn = document.getElementById('upload-btn');
-        const photoUpload = document.getElementById('photo-upload');
-        const userIdSpan = document.getElementById('user-id');
-        
-        let username = '';
-        let selectedMessage = null;
-        let replyingToMessage = null;
-        let authReady = false;
-        
-        // This is a global variable from the script tag above
-        const auth = getAuth();
-        const db = getFirestore();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    <div class="ios-blur p-4 border-t border-gray-200">
+      <div id="reply-quote-container"
+           class="hidden p-2 mb-2 bg-gray-100 rounded-lg border-l-4 border-blue-500 relative">
+        <span id="reply-quote-text" class="text-sm font-medium text-gray-600"></span>
+        <button id="cancel-reply" class="absolute top-1 right-1 text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times-circle"></i>
+        </button>
+      </div>
+      <form id="chat-form" class="flex items-end space-x-3">
+        <button type="button" id="upload-btn"
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-lg">
+          <i class="fas fa-plus"></i>
+        </button>
+        <textarea id="message-input" placeholder="MessageGoo" rows="1"
+                  class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-2xl resize-none overflow-hidden
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"></textarea>
+        <button type="submit"
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-lg">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  </div>
 
-        // Listen for authentication state changes
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                authReady = true;
-                const userId = user.uid;
-                userIdSpan.textContent = userId;
-                
-                // Get a reference to the 'messages' collection
-                const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
-                
-                // Set up a real-time listener for new messages
-                onSnapshot(messagesCol, (snapshot) => {
-                    snapshot.docChanges().forEach(change => {
-                        if (change.type === "added") {
-                            const message = change.doc.data();
-                            const isSender = message.userId === userId;
-                            addMessage(message.content, isSender, message.type, message.replyTo);
-                        }
-                    });
-                });
-            }
-        });
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        /**
-         * Adds a new message (text or image) to the chat display.
-         * @param {string} content - The message text or image URL.
-         * @param {boolean} isSender - True if the message is from the user, false otherwise.
-         * @param {string} type - 'text' or 'image'.
-         * @param {string} [replyToText] - The text of the message being replied to, if any.
-         */
-        function addMessage(content, isSender, type, replyToText) {
-            const messageWrapper = document.createElement('div');
-            messageWrapper.classList.add('flex', 'flex-col', 'message-animation', 'space-y-1', isSender ? 'items-end' : 'items-start');
+    // Config from host (replace with your Firebase config if running locally)
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-            // Store the original content in a data attribute for replies
-            messageWrapper.dataset.originalContent = content;
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-            // Add username for the sender
-            const usernameEl = document.createElement('div');
-            usernameEl.textContent = isSender ? username : 'Other User'; // Placeholder for other users
-            usernameEl.classList.add('text-xs', 'text-gray-500', isSender ? 'mr-2' : 'ml-2');
-            messageWrapper.appendChild(usernameEl);
+    // DOM elements
+    const loginScreen = document.getElementById('login-screen');
+    const loginForm = document.getElementById('login-form');
+    const usernameInput = document.getElementById('username-input');
+    const chatContainer = document.getElementById('chat-container');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const messagesContainer = document.getElementById('messages');
+    const reactionMenu = document.getElementById('reaction-menu');
+    const replyBtn = document.getElementById('reply-btn');
+    const replyQuoteContainer = document.getElementById('reply-quote-container');
+    const replyQuoteText = document.getElementById('reply-quote-text');
+    const cancelReplyBtn = document.getElementById('cancel-reply');
+    const uploadBtn = document.getElementById('upload-btn');
+    const photoUpload = document.getElementById('photo-upload');
+    const userIdSpan = document.getElementById('user-id');
 
-            const messageEl = document.createElement('div');
-            messageEl.classList.add('relative', 'max-w-[75%]', 'p-2', 'rounded-2xl', isSender ? 'bg-blue-500' : 'bg-gray-200', isSender ? 'text-white' : 'text-gray-800', isSender ? 'sent-bubble' : 'received-bubble');
-            messageEl.style.maxWidth = '300px';
-            messageEl.style.minWidth = '50px';
-            messageEl.style.wordBreak = 'break-word';
+    let username = '';
+    let selectedMessage = null;
+    let replyingToMessage = null;
+    let authReady = false;
 
-            // Add reply quote if replying to a message
-            if (replyToText) {
-                const replyQuoteEl = document.createElement('div');
-                replyQuoteEl.classList.add('p-1', 'pl-2', 'mb-1', 'rounded', 'border-l-2', 'border-blue-300', 'bg-blue-400', 'text-xs', 'text-white', 'opacity-80', 'max-w-full', 'overflow-hidden', 'whitespace-nowrap', 'text-ellipsis');
-                replyQuoteEl.textContent = replyToText;
-                messageEl.appendChild(replyQuoteEl);
-            }
-
-            if (type === 'image') {
-                const img = document.createElement('img');
-                img.src = content;
-                img.classList.add('rounded-xl', 'max-w-full', 'h-auto', 'object-contain', 'shadow-md');
-                messageEl.classList.remove('p-2');
-                messageEl.appendChild(img);
-            } else {
-                const textNode = document.createTextNode(content);
-                messageEl.appendChild(textNode);
-            }
-
-            messageWrapper.appendChild(messageEl);
-            messagesContainer.appendChild(messageWrapper);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-            // Add right-click listener for reactions
-            messageWrapper.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                selectedMessage = messageWrapper; // Select the wrapper to get the data attribute
-                reactionMenu.style.display = 'flex';
-                const rect = messageEl.getBoundingClientRect();
-                reactionMenu.style.left = `${rect.left + rect.width / 2 - reactionMenu.offsetWidth / 2}px`;
-                reactionMenu.style.top = `${rect.top - reactionMenu.offsetHeight - 5}px`;
-            });
+    // Firebase auth
+    async function signIn() {
+      try {
+        if (initialAuthToken) {
+          await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+          await signInAnonymously(auth);
         }
+        console.log("Signed in to Firebase.");
+      } catch (err) {
+        console.error("Sign-in failed:", err);
+      }
+    }
+    window.onload = signIn;
 
-        /**
-         * Adds or updates a reaction on a message.
-         * @param {HTMLElement} messageEl - The message element.
-         * @param {string} emoji - The emoji for the reaction.
-         */
-        function addReaction(messageEl, emoji) {
-            let reactionDisplay = messageEl.querySelector('.reaction-display');
-            
-            // Check if the reaction already exists
-            const existingEmoji = reactionDisplay ? reactionDisplay.textContent : null;
-            if (existingEmoji === emoji) {
-                reactionDisplay.remove();
-                return;
-            }
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        authReady = true;
+        userIdSpan.textContent = user.uid;
 
-            if (!reactionDisplay) {
-                reactionDisplay = document.createElement('div');
-                reactionDisplay.classList.add('reaction-display', 'absolute', '-bottom-3', 'left-1/2', '-translate-x-1/2', 'bg-white', 'rounded-full', 'px-1', 'py-0.5', 'text-xs', 'shadow-md', 'border', 'border-gray-200', 'transform', 'transition-transform', 'duration-200', 'scale-0');
-                messageEl.classList.add('relative');
-                messageEl.appendChild(reactionDisplay);
-                
-                // Add scale-in animation
-                setTimeout(() => {
-                    reactionDisplay.style.transform = 'scale(1) translateX(-50%)';
-                }, 10);
+        const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
+        onSnapshot(messagesCol, (snapshot) => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === "added") {
+              const message = change.doc.data();
+              addMessage(message.content, message.userId === user.uid, message.type, message.replyTo, message.username);
             }
-            reactionDisplay.textContent = emoji;
+          });
+        });
+      }
+    });
+
+    // Add message to UI
+    function addMessage(content, isSender, type, replyToText, senderName) {
+      const messageWrapper = document.createElement('div');
+      messageWrapper.classList.add('flex', 'flex-col', 'message-animation', 'space-y-1',
+                                   isSender ? 'items-end' : 'items-start');
+      messageWrapper.dataset.originalContent = content;
+
+      const usernameEl = document.createElement('div');
+      usernameEl.textContent = isSender ? username : (senderName || "Other User");
+      usernameEl.classList.add('text-xs', 'text-gray-500', isSender ? 'mr-2' : 'ml-2');
+      messageWrapper.appendChild(usernameEl);
+
+      const messageEl = document.createElement('div');
+      messageEl.classList.add('relative', 'max-w-[75%]', 'p-2', 'rounded-2xl',
+                              isSender ? 'bg-blue-500 text-white sent-bubble'
+                                       : 'bg-gray-200 text-gray-800 received-bubble');
+      messageEl.style.maxWidth = '300px';
+      messageEl.style.wordBreak = 'break-word';
+
+      if (replyToText) {
+        const replyQuoteEl = document.createElement('div');
+        replyQuoteEl.classList.add('p-1', 'pl-2', 'mb-1', 'rounded', 'border-l-2',
+                                   'border-blue-300', 'bg-blue-400', 'text-xs',
+                                   'text-white', 'opacity-80', 'overflow-hidden',
+                                   'whitespace-nowrap', 'text-ellipsis');
+        replyQuoteEl.textContent = replyToText;
+        messageEl.appendChild(replyQuoteEl);
+      }
+
+      if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = content;
+        img.classList.add('rounded-xl', 'max-w-full', 'h-auto', 'object-contain', 'shadow-md');
+        messageEl.appendChild(img);
+      } else {
+        messageEl.textContent = content;
+      }
+
+      messageWrapper.appendChild(messageEl);
+      messagesContainer.appendChild(messageWrapper);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      messageWrapper.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        selectedMessage = messageWrapper;
+        reactionMenu.style.display = 'flex';
+        const rect = messageEl.getBoundingClientRect();
+        reactionMenu.style.left = `${rect.left + rect.width / 2 - reactionMenu.offsetWidth / 2}px`;
+        reactionMenu.style.top = `${rect.top - reactionMenu.offsetHeight - 5}px`;
+      });
+    }
+
+    // Login form
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      username = usernameInput.value.trim();
+      if (username) {
+        loginScreen.classList.add('opacity-0');
+        setTimeout(() => {
+          loginScreen.style.display = 'none';
+          chatContainer.classList.remove('hidden');
+        }, 500);
+      }
+    });
+
+    // Reactions
+    document.querySelectorAll('.reaction-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        if (selectedMessage) {
+          const messageBubble = selectedMessage.querySelector('div:nth-child(2)');
+          messageBubble.textContent += " " + button.dataset.reaction;
         }
+        reactionMenu.style.display = 'none';
+      });
+    });
 
-        // Handle form submission for login
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            username = usernameInput.value.trim();
-            if (username) {
-                loginScreen.classList.add('opacity-0');
-                setTimeout(() => {
-                    loginScreen.style.display = 'none';
-                    chatContainer.classList.remove('hidden');
-                }, 500);
-            }
-        });
+    replyBtn.addEventListener('click', () => {
+      if (selectedMessage) {
+        replyingToMessage = selectedMessage.dataset.originalContent;
+        replyQuoteText.textContent = replyingToMessage;
+        replyQuoteContainer.classList.remove('hidden');
+        messageInput.focus();
+        reactionMenu.style.display = 'none';
+      }
+    });
 
-        // Add event listeners for reaction buttons
-        document.querySelectorAll('.reaction-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                if (selectedMessage) {
-                    const messageBubble = selectedMessage.querySelector('div');
-                    addReaction(messageBubble, button.dataset.reaction);
-                }
-                reactionMenu.style.display = 'none';
+    cancelReplyBtn.addEventListener('click', () => {
+      replyingToMessage = null;
+      replyQuoteContainer.classList.add('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!reactionMenu.contains(e.target) && !messagesContainer.contains(e.target)) {
+        reactionMenu.style.display = 'none';
+      }
+    });
+
+    messageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        chatForm.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    chatForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!authReady) return;
+
+      const messageText = messageInput.value.trim();
+      if (messageText) {
+        try {
+          const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
+          await addDoc(messagesCol, {
+            content: messageText,
+            userId: auth.currentUser.uid,
+            username: username,
+            type: 'text',
+            replyTo: replyingToMessage || null,
+            timestamp: serverTimestamp()
+          });
+          messageInput.value = '';
+          replyingToMessage = null;
+          replyQuoteContainer.classList.add('hidden');
+        } catch (e) {
+          console.error("Error adding document: ", e);
+        }
+      }
+    });
+
+    uploadBtn.addEventListener('click', () => photoUpload.click());
+
+    photoUpload.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (file && authReady) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
+            await addDoc(messagesCol, {
+              content: e.target.result,
+              userId: auth.currentUser.uid,
+              username: username,
+              type: 'image',
+              replyTo: replyingToMessage || null,
+              timestamp: serverTimestamp()
             });
-        });
-        
-        // Handle reply button click
-        replyBtn.addEventListener('click', () => {
-            if (selectedMessage) {
-                replyingToMessage = selectedMessage.dataset.originalContent;
-                
-                replyQuoteText.textContent = replyingToMessage;
-                replyQuoteContainer.classList.remove('hidden');
-                messageInput.focus();
-                reactionMenu.style.display = 'none';
-            }
-        });
-        
-        // Handle cancel reply button click
-        cancelReplyBtn.addEventListener('click', () => {
             replyingToMessage = null;
             replyQuoteContainer.classList.add('hidden');
-        });
+          } catch (e) {
+            console.error("Error adding image document: ", e);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
 
-        // Hide reaction menu if clicked outside
-        document.addEventListener('click', (e) => {
-            if (!reactionMenu.contains(e.target) && !messagesContainer.contains(e.target)) {
-                reactionMenu.style.display = 'none';
-            }
-        });
-        
-        // Handle keyboard events on the message input
-        messageInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault(); // Prevents a new line
-                chatForm.dispatchEvent(new Event('submit')); // Triggers form submission
-            }
-        });
-
-        // Handle form submission and send message to Firestore
-        chatForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            if (!authReady) {
-                console.error("Authentication not ready. Cannot send message.");
-                return;
-            }
-
-            const messageText = messageInput.value.trim();
-            if (messageText) {
-                try {
-                    const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
-                    await addDoc(messagesCol, {
-                        content: messageText,
-                        userId: auth.currentUser.uid,
-                        username: username,
-                        type: 'text',
-                        replyTo: replyingToMessage || null,
-                        timestamp: serverTimestamp()
-                    });
-                    messageInput.value = '';
-                    replyingToMessage = null;
-                    replyQuoteContainer.classList.add('hidden');
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                }
-            }
-        });
-
-        // Photo upload functionality
-        uploadBtn.addEventListener('click', () => {
-            photoUpload.click();
-        });
-
-        photoUpload.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (file && authReady) {
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    try {
-                        const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
-                        await addDoc(messagesCol, {
-                            content: e.target.result,
-                            userId: auth.currentUser.uid,
-                            username: username,
-                            type: 'image',
-                            replyTo: replyingToMessage || null,
-                            timestamp: serverTimestamp()
-                        });
-                        replyingToMessage = null;
-                        replyQuoteContainer.classList.add('hidden');
-                    } catch (e) {
-                        console.error("Error adding image document: ", e);
-                    }
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Auto-resize the textarea
-        messageInput.addEventListener('input', () => {
-            messageInput.style.height = 'auto';
-            messageInput.style.height = messageInput.scrollHeight + 'px';
-        });
-    </script>
+    messageInput.addEventListener('input', () => {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = messageInput.scrollHeight + 'px';
+    });
+  </script>
 </body>
 </html>
